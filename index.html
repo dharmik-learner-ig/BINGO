@@ -245,6 +245,7 @@
         let myRole = ''; 
         let opponentRole = '';
         let localBoardStructure = [];
+        let lastLoadedResetCounter = null;
 
         listenToRoomData();
 
@@ -274,6 +275,7 @@
             document.getElementById('role-screen').style.display = 'block';
             myRole = '';
             opponentRole = '';
+            lastLoadedResetCounter = null;
         }
 
         function generateShuffledLayout() {
@@ -345,7 +347,6 @@
 
                 if (!myRole) return;
 
-                // FIX: Ensure it correctly checks the customized name layouts
                 if (!data.dharmikLayout || !data.avishaLayout) {
                     if (myRole === 'dharmik') {
                         triggerGlobalReset();
@@ -355,8 +356,13 @@
 
                 const myLayout = myRole === 'dharmik' ? data.dharmikLayout : data.avishaLayout;
                 
-                if(document.getElementById('bingo-grid').children.length === 0 || data.resetCounter) {
+                // FIX: Only rebuild the board grid if it is empty OR a brand-new reset event was triggered in the DB
+                const isNewReset = data.resetCounter && (data.resetCounter !== lastLoadedResetCounter);
+                if (document.getElementById('bingo-grid').children.length === 0 || isNewReset) {
                     createLocalGrid(myLayout);
+                    if (data.resetCounter) {
+                        lastLoadedResetCounter = data.resetCounter;
+                    }
                 }
                 
                 renderBoardState(data);
@@ -434,15 +440,12 @@
                 modal.style.display = 'flex';
                 
                 if (data.winner === myRole) {
-                    // Current player won!
                     statusText.textContent = "🎉 VICTORY!";
                     statusText.className = "modal-title";
                     subText.textContent = myRole === 'dharmik' ? "You beat her to Bingo!" : "You beat him to Bingo!";
                 } else {
-                    // Opponent won!
                     statusText.textContent = "🥺 DEFEAT";
                     statusText.className = "modal-title lost";
-                    // Custom rules: "She defeated you!" for Dharmik and "He defeated you!" for Avisha
                     subText.textContent = myRole === 'dharmik' ? "She defeated you!" : "He defeated you!";
                 }
             } else {
