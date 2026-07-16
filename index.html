@@ -39,8 +39,7 @@
             max-width: 420px;
         }
 
-        #lobby-screen { display: block; }
-        #role-screen { display: none; }
+        #role-screen { display: block; }
         #game-screen { display: none; }
 
         h1 { 
@@ -54,31 +53,6 @@
             color: #57606f; 
             margin-bottom: 15px;
             font-size: 0.9rem;
-        }
-
-        .room-display {
-            display: inline-block;
-            background: #e1f5fe;
-            color: #0288d1;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .input-group {
-            margin: 15px 0;
-        }
-
-        .text-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ced6e0;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            text-align: center;
-            font-weight: bold;
-            text-transform: uppercase;
         }
 
         .bingo-tracker {
@@ -218,28 +192,14 @@
 </head>
 <body>
 
-    <div class="screen" id="lobby-screen">
-        <h1>Bingo Multiplayer 🎲</h1>
-        <button class="btn" onclick="createNewRoom()">Create Private Room</button>
-        
-        <div style="margin: 15px 0; color: #747d8c; font-weight: bold;">— OR —</div>
-        
-        <div class="input-group">
-            <input type="number" id="room-code-input" class="text-input" placeholder="Enter 4-Digit Room Code" oninput="if(this.value.length > 4) this.value = this.value.slice(0,4);">
-        </div>
-        <button class="btn btn-secondary" onclick="joinRoom()">Join Existing Room</button>
-    </div>
-
     <div class="screen" id="role-screen">
-        <h1>Select Role 👥</h1>
-        <div class="room-display" id="role-room-id">Room: ----</div>
-        <p style="color: #747d8c; margin-bottom: 20px;">Coordinate roles with your opponent.</p>
+        <h1>Bingo Room 🎲</h1>
+        <p style="color: #747d8c; margin-bottom: 20px;">Pick your player role to start synced play.</p>
         <button class="btn" id="p1-join-btn" onclick="selectRole('player1')">I am Player 1</button>
         <button class="btn btn-secondary" id="p2-join-btn" onclick="selectRole('player2')">I am Player 2</button>
     </div>
 
     <div class="screen" id="game-screen">
-        <div class="room-display" id="game-room-id">Room: ----</div>
         <div class="role-indicator" id="role-display"></div>
         
         <div class="bingo-tracker">
@@ -251,7 +211,7 @@
         </div>
         
         <div class="grid" id="bingo-grid"></div>
-        <button class="btn btn-secondary" style="margin-top: 15px;" onclick="abandonRoom()">Leave Room</button>
+        <button class="btn btn-secondary" style="margin-top: 15px;" onclick="leaveRoom()">Leave Game</button>
     </div>
 
     <div class="game-over-modal" id="win-modal">
@@ -280,63 +240,41 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let currentRoomCode = '';
+        // Constant path path used for the simple global shared game room
+        const roomPath = 'globalRoom';
+        
         let myRole = ''; 
         let opponentRole = '';
         let localBoardStructure = [];
-        let roomListenerUnsubscribe = null;
 
-        window.createNewRoom = function() {
-            currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
-            set(ref(db, `rooms/${currentRoomCode}`), {
-                createdAt: Date.now(),
-                winner: ""
-            }).then(() => {
-                showScreen('role-screen');
-                document.getElementById('role-room-id').textContent = `Room Code: ${currentRoomCode}`;
-                listenToRoomData();
-            });
-        }
-
-        window.joinRoom = function() {
-            const inputVal = document.getElementById('room-code-input').value.trim();
-            if (inputVal.length !== 4) {
-                alert("Please enter a valid 4-digit room code.");
-                return;
-            }
-            currentRoomCode = inputVal;
-            showScreen('role-screen');
-            document.getElementById('role-room-id').textContent = `Room Code: ${currentRoomCode}`;
-            listenToRoomData();
-        }
+        // Connect connection listeners right away on launch
+        listenToRoomData();
 
         window.selectRole = function(role) {
             myRole = role;
             opponentRole = (role === 'player1') ? 'player2' : 'player1';
             
-            showScreen('game-screen');
-            document.getElementById('game-room-id').textContent = `Room Code: ${currentRoomCode}`;
+            document.getElementById('role-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
             document.getElementById('role-display').textContent = `Playing as: ${myRole.toUpperCase()}`;
             
-            update(ref(db, `rooms/${currentRoomCode}`), {
+            update(ref(db, roomPath), {
                 [myRole]: true
             });
         }
 
-        window.abandonRoom = function() {
-            if(roomListenerUnsubscribe) roomListenerUnsubscribe();
+        window.leaveRoom = function() {
+            // Reset player assignment flag in DB when leaving
+            if (myRole) {
+                update(ref(db, roomPath), {
+                    [myRole]: false
+                });
+            }
             document.getElementById('win-modal').style.display = 'none';
-            showScreen('lobby-screen');
-            currentRoomCode = '';
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('role-screen').style.display = 'block';
             myRole = '';
             opponentRole = '';
-        }
-
-        function showScreen(screenId) {
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('role-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'none';
-            document.getElementById(screenId).style.display = 'block';
         }
 
         function generateShuffledLayout() {
@@ -360,8 +298,6 @@
                 localBoardStructure[r] = [];
                 for (let c = 0; c < 5; c++) {
                     let isCenter = (r === 2 && c === 2);
-                    
-                    // Center maps to a special value, but layout counter map STILL moves up so no number is lost!
                     let valFromPool = numbersLayout[counter++];
                     localBoardStructure[r][c] = isCenter ? "FREE" : valFromPool;
                     
@@ -387,7 +323,7 @@
             const p1Layout = generateShuffledLayout();
             const p2Layout = generateShuffledLayout();
 
-            set(ref(db, `rooms/${currentRoomCode}`), {
+            set(ref(db, roomPath), {
                 clickedNumbers: {},
                 player1Layout: p1Layout,
                 player2Layout: p2Layout,
@@ -400,10 +336,11 @@
         }
 
         function listenToRoomData() {
-            roomListenerUnsubscribe = onValue(ref(db, `rooms/${currentRoomCode}`), (snapshot) => {
+            onValue(ref(db, roomPath), (snapshot) => {
                 const data = snapshot.val() || {};
                 
-                if (document.getElementById('role-screen').style.display === 'block') {
+                // Disable role selections if players are active in room
+                if (document.getElementById('role-screen').style.display !== 'none') {
                     document.getElementById('p1-join-btn').disabled = data.player1 === true;
                     document.getElementById('p2-join-btn').disabled = data.player2 === true;
                 }
@@ -428,10 +365,11 @@
         }
 
         function handleCellClick(numberValue) {
-            onValue(ref(db, `rooms/${currentRoomCode}/winner`), (snap) => {
+            onValue(ref(db, `${roomPath}/winner`), (snap) => {
                 if(snap.val()) return;
-                set(ref(db, `rooms/${currentRoomCode}/clickedNumbers/${numberValue}`), {
-                    chosenBy: myRole
+                
+                update(ref(db, `${roomPath}/clickedNumbers/${numberValue}`), {
+                    [myRole]: true
                 });
             }, { onlyOnce: true });
         }
@@ -450,18 +388,17 @@
                     
                     if (r === 2 && c === 2) {
                         cell.classList.add('free-space');
-                        trackingMatrix[r][c] = true; // Always count center as true
+                        trackingMatrix[r][c] = true;
                         continue;
                     }
 
                     const cellValue = localBoardStructure[r][c];
-                    const globalClickData = clickedNumbers[cellValue];
+                    const numberSelections = clickedNumbers[cellValue] || {};
 
-                    const isClicked = globalClickData !== undefined;
-                    const chosenByMe = isClicked && globalClickData.chosenBy === myRole;
-                    const chosenByOpponent = isClicked && globalClickData.chosenBy === opponentRole;
+                    const chosenByMe = numberSelections[myRole] === true;
+                    const chosenByOpponent = numberSelections[opponentRole] === true;
 
-                    trackingMatrix[r][c] = isClicked;
+                    trackingMatrix[r][c] = chosenByMe;
 
                     if (chosenByMe && chosenByOpponent) {
                         cell.classList.add('both-marked');
@@ -487,7 +424,7 @@
             }
 
             if (linesCompleted >= 5 && data.winner !== myRole && !data.winner) {
-                update(ref(db, `rooms/${currentRoomCode}`), { winner: myRole });
+                update(ref(db, roomPath), { winner: myRole });
             }
 
             const modal = document.getElementById('win-modal');
