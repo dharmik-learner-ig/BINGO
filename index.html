@@ -194,9 +194,9 @@
 
     <div class="screen" id="role-screen">
         <h1>Bingo Room 🎲</h1>
-        <p style="color: #747d8c; margin-bottom: 20px;">Pick your player role to start synced play.</p>
-        <button class="btn" id="p1-join-btn" onclick="selectRole('player1')">I am Player 1</button>
-        <button class="btn btn-secondary" id="p2-join-btn" onclick="selectRole('player2')">I am Player 2</button>
+        <p style="color: #747d8c; margin-bottom: 20px;">Pick your name to start synced play.</p>
+        <button class="btn" id="p1-join-btn" onclick="selectRole('dharmik')">I am Dharmik</button>
+        <button class="btn btn-secondary" id="p2-join-btn" onclick="selectRole('avisha')">I am Avisha</button>
     </div>
 
     <div class="screen" id="game-screen">
@@ -240,23 +240,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Constant path path used for the simple global shared game room
         const roomPath = 'globalRoom';
         
         let myRole = ''; 
         let opponentRole = '';
         let localBoardStructure = [];
 
-        // Connect connection listeners right away on launch
         listenToRoomData();
 
         window.selectRole = function(role) {
             myRole = role;
-            opponentRole = (role === 'player1') ? 'player2' : 'player1';
+            opponentRole = (role === 'dharmik') ? 'avisha' : 'dharmik';
             
             document.getElementById('role-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('role-display').textContent = `Playing as: ${myRole.toUpperCase()}`;
+            
+            const formattedName = myRole.charAt(0).toUpperCase() + myRole.slice(1);
+            document.getElementById('role-display').textContent = `Playing as: ${formattedName}`;
             
             update(ref(db, roomPath), {
                 [myRole]: true
@@ -264,7 +264,6 @@
         }
 
         window.leaveRoom = function() {
-            // Reset player assignment flag in DB when leaving
             if (myRole) {
                 update(ref(db, roomPath), {
                     [myRole]: false
@@ -325,11 +324,11 @@
 
             set(ref(db, roomPath), {
                 clickedNumbers: {},
-                player1Layout: p1Layout,
-                player2Layout: p2Layout,
+                dharmikLayout: p1Layout,
+                avishaLayout: p2Layout,
                 winner: "",
-                player1: true,
-                player2: true,
+                dharmik: true,
+                avisha: true,
                 resetCounter: Date.now()
             });
             document.getElementById('win-modal').style.display = 'none';
@@ -339,22 +338,22 @@
             onValue(ref(db, roomPath), (snapshot) => {
                 const data = snapshot.val() || {};
                 
-                // Disable role selections if players are active in room
                 if (document.getElementById('role-screen').style.display !== 'none') {
-                    document.getElementById('p1-join-btn').disabled = data.player1 === true;
-                    document.getElementById('p2-join-btn').disabled = data.player2 === true;
+                    document.getElementById('p1-join-btn').disabled = data.dharmik === true;
+                    document.getElementById('p2-join-btn').disabled = data.avisha === true;
                 }
 
                 if (!myRole) return;
 
-                if (!data.player1Layout || !data.player2Layout) {
-                    if (myRole === 'player1') {
+                // FIX: Ensure it correctly checks the customized name layouts
+                if (!data.dharmikLayout || !data.avishaLayout) {
+                    if (myRole === 'dharmik') {
                         triggerGlobalReset();
                     }
                     return;
                 }
 
-                const myLayout = myRole === 'player1' ? data.player1Layout : data.player2Layout;
+                const myLayout = myRole === 'dharmik' ? data.dharmikLayout : data.avishaLayout;
                 
                 if(document.getElementById('bingo-grid').children.length === 0 || data.resetCounter) {
                     createLocalGrid(myLayout);
@@ -433,14 +432,18 @@
 
             if (data.winner) {
                 modal.style.display = 'flex';
+                
                 if (data.winner === myRole) {
+                    // Current player won!
                     statusText.textContent = "🎉 VICTORY!";
                     statusText.className = "modal-title";
-                    subText.textContent = "Awesome job! You completed all 5 lines first!";
+                    subText.textContent = myRole === 'dharmik' ? "You beat her to Bingo!" : "You beat him to Bingo!";
                 } else {
+                    // Opponent won!
                     statusText.textContent = "🥺 DEFEAT";
                     statusText.className = "modal-title lost";
-                    subText.textContent = "She hit BINGO before you! Better luck next time.";
+                    // Custom rules: "She defeated you!" for Dharmik and "He defeated you!" for Avisha
+                    subText.textContent = myRole === 'dharmik' ? "She defeated you!" : "He defeated you!";
                 }
             } else {
                 modal.style.display = 'none';
