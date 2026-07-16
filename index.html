@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Bingo 🎲</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Real-Time Multi-Line Bingo 🎲</title>
     <style>
         :root {
             --primary-color: #ff6b8b;
@@ -12,8 +12,13 @@
             --card-color: #ffffff;
         }
 
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
@@ -21,34 +26,77 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
 
         .setup-screen {
             background: var(--card-color);
-            padding: 30px;
+            padding: 25px 20px;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
             text-align: center;
+            width: 100%;
+            max-width: 400px;
         }
 
         .game-screen {
             display: none;
             background: var(--card-color);
-            padding: 25px;
+            padding: 15px;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
             text-align: center;
+            width: 100%;
+            max-width: 450px;
         }
 
-        h1 { color: var(--primary-color); margin-bottom: 5px; }
-        .role-indicator { font-weight: bold; color: #57606f; margin-bottom: 20px; }
+        h1 { 
+            color: var(--primary-color); 
+            margin: 5px 0; 
+            font-size: 1.8rem;
+        }
+        
+        .role-indicator { 
+            font-weight: 600; 
+            color: #57606f; 
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
 
+        /* Responsive Mobile Tracker */
+        .bingo-tracker {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .letter-box {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #ced6e0;
+            flex: 1;
+            max-width: 50px;
+            padding: 8px 0;
+            border-radius: 10px;
+            background-color: #f1f2f6;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .letter-box.active {
+            color: white;
+            background-color: #ff4757;
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);
+            text-decoration: line-through;
+        }
+
+        /* Fully Responsive Grid System */
         .grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            max-width: 450px;
+            gap: 6px;
+            width: 100%;
             margin: 0 auto;
         }
 
@@ -56,16 +104,28 @@
             aspect-ratio: 1;
             background-color: #f1f2f6;
             border: 2px solid #ced6e0;
-            border-radius: 12px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
-            font-weight: bold;
+            font-size: calc(1rem + 1vw);
+            font-weight: 700;
             color: #2f3542;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Adjust sizing rules for text inside dense small dynamic screens */
+        @media (max-width: 360px) {
+            .cell {
+                font-size: 1.1rem;
+                border-radius: 8px;
+            }
+            .letter-box {
+                font-size: 1.2rem;
+            }
         }
 
         .cell.marked {
@@ -87,43 +147,54 @@
         .cell.free-space {
             background-color: #ffa502;
             color: white;
+            font-size: calc(0.6rem + 1vw);
         }
 
         .btn {
-            margin: 10px;
-            padding: 12px 30px;
+            width: 100%;
+            margin: 8px 0;
+            padding: 14px;
             font-size: 1rem;
             font-weight: bold;
             color: white;
             background-color: var(--primary-color);
             border: none;
-            border-radius: 25px;
+            border-radius: 15px;
             cursor: pointer;
+            touch-action: manipulation;
         }
 
         .btn-secondary { background-color: var(--secondary-color); }
 
         .win-message {
             margin-top: 15px;
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: #2ed573;
-            min-height: 36px;
+            min-height: 28px;
         }
     </style>
 </head>
 <body>
 
     <div class="setup-screen" id="setup-screen">
-        <h1>Join the Bingo Room ✨</h1>
-        <p>Pick a side to start playing together live.</p>
+        <h1>Bingo Room 🎲</h1>
+        <p style="color: #747d8c; margin-bottom: 20px;">Pick a player role to start sync play.</p>
         <button class="btn" onclick="selectRole('player1')">I am Player 1</button>
         <button class="btn btn-secondary" onclick="selectRole('player2')">I am Player 2</button>
     </div>
 
     <div class="game-screen" id="game-screen">
-        <h1 id="game-title">Bingo Game! ✨</h1>
+        <h1 id="game-title">Bingo Game ✨</h1>
         <div class="role-indicator" id="role-display"></div>
+        
+        <div class="bingo-tracker">
+            <div class="letter-box" id="letter-0">B</div>
+            <div class="letter-box" id="letter-1">I</div>
+            <div class="letter-box" id="letter-2">N</div>
+            <div class="letter-box" id="letter-3">G</div>
+            <div class="letter-box" id="letter-4">O</div>
+        </div>
         
         <div class="grid" id="bingo-grid"></div>
 
@@ -135,7 +206,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Fully loaded with all configuration details from your screenshots
         const firebaseConfig = {
             apiKey: "AIzaSyBQRquxKenYndFB0zQphPBvinyzIzslW2o",
             authDomain: "bingo-8e1b2.firebaseapp.com",
@@ -160,7 +230,7 @@
             
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('role-display').textContent = `You are playing as: ${myRole.toUpperCase()}`;
+            document.getElementById('role-display').textContent = `Playing as: ${myRole.toUpperCase()}`;
             
             initGameConnection();
         }
@@ -251,29 +321,42 @@
                 }
             }
 
-            if (checkWin(trackingMatrix) && data.winner !== myRole) {
+            let linesCompleted = countCompletedLines(trackingMatrix);
+            
+            for (let i = 0; i < 5; i++) {
+                const letterBox = document.getElementById(`letter-${i}`);
+                if (i < linesCompleted) {
+                    letterBox.classList.add('active');
+                } else {
+                    letterBox.classList.remove('active');
+                }
+            }
+
+            if (linesCompleted >= 5 && data.winner !== myRole) {
                 update(ref(db, 'bingoRoom/'), { winner: myRole });
             }
 
             const winStatus = document.getElementById('win-status');
             if (data.winner) {
-                winStatus.textContent = data.winner === myRole ? "🎉 BINGO! You Won! 🎉" : "🥺 She got Bingo first!";
+                winStatus.textContent = data.winner === myRole ? "🎉 BINGO! You won! 🎉" : "🥺 She completed BINGO first!";
             } else {
                 winStatus.textContent = "";
             }
         }
 
-        function checkWin(matrix) {
+        function countCompletedLines(matrix) {
+            let totalLines = 0;
+
             for (let r = 0; r < 5; r++) {
-                if (matrix[r].every(val => val === true)) return true;
+                if (matrix[r].every(val => val === true)) totalLines++;
             }
             for (let c = 0; c < 5; c++) {
-                if (matrix[0][c] && matrix[1][c] && matrix[2][c] && matrix[3][c] && matrix[4][c]) return true;
+                if (matrix[0][c] && matrix[1][c] && matrix[2][c] && matrix[3][c] && matrix[4][c]) totalLines++;
             }
-            if (matrix[0][0] && matrix[1][1] && matrix[2][2] && matrix[3][3] && matrix[4][4]) return true;
-            if (matrix[0][4] && matrix[1][3] && matrix[2][2] && matrix[3][1] && matrix[4][0]) return true;
+            if (matrix[0][0] && matrix[1][1] && matrix[2][2] && matrix[3][3] && matrix[4][4]) totalLines++;
+            if (matrix[0][4] && matrix[1][3] && matrix[2][2] && matrix[3][1] && matrix[4][0]) totalLines++;
 
-            return false;
+            return totalLines;
         }
     </script>
 </body>
