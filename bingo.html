@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Bingo 🎲</title>
+    <style>
+        :root {
+            --primary-color: #ff6b8b;
+            --secondary-color: #70a1ff;
+            --bg-color: #f1f2f6;
+            --card-color: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .setup-screen {
+            background: var(--card-color);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .game-screen {
+            display: none;
+            background: var(--card-color);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 { color: var(--primary-color); margin-bottom: 5px; }
+        .role-indicator { font-weight: bold; color: #57606f; margin-bottom: 20px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background-color: #f1f2f6;
+            border: 2px solid #ced6e0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2f3542;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .cell.marked {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .cell.opponent-marked {
+            border: 3px dashed var(--secondary-color);
+        }
+
+        .cell.both-marked {
+            background-color: #2ed573;
+            color: white;
+            border-color: #2ed573;
+        }
+
+        .cell.free-space {
+            background-color: #ffa502;
+            color: white;
+        }
+
+        .btn {
+            margin: 10px;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .btn-secondary { background-color: var(--secondary-color); }
+
+        .win-message {
+            margin-top: 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2ed573;
+            min-height: 36px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="setup-screen" id="setup-screen">
+        <h1>Join the Bingo Room ✨</h1>
+        <p>Pick a side to start playing together live.</p>
+        <button class="btn" onclick="selectRole('player1')">I am Player 1</button>
+        <button class="btn btn-secondary" onclick="selectRole('player2')">I am Player 2</button>
+    </div>
+
+    <div class="game-screen" id="game-screen">
+        <h1 id="game-title">Bingo Game! ✨</h1>
+        <div class="role-indicator" id="role-display"></div>
+        
+        <div class="grid" id="bingo-grid"></div>
+
+        <div class="win-message" id="win-status"></div>
+        <button class="btn btn-secondary" id="reset-btn">Reset Board</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Fully loaded with all configuration details from your screenshots
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQRquxKenYndFB0zQphPBvinyzIzslW2o",
+            authDomain: "bingo-8e1b2.firebaseapp.com",
+            databaseURL: "https://bingo-8e1b2-default-rtdb.firebaseio.com",
+            projectId: "bingo-8e1b2",
+            storageBucket: "bingo-8e1b2.firebasestorage.app",
+            messagingSenderId: "873167000774",
+            appId: "1:873167000774:web:384431e0a69f5c22afb3c7",
+            measurementId: "G-DRDSXYT0LV"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let myRole = ''; 
+        let opponentRole = '';
+        let localBoardStructure = [];
+
+        window.selectRole = function(role) {
+            myRole = role;
+            opponentRole = (role === 'player1') ? 'player2' : 'player1';
+            
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('role-display').textContent = `You are playing as: ${myRole.toUpperCase()}`;
+            
+            initGameConnection();
+        }
+
+        function generateFixedLayout() {
+            let layout = [];
+            for(let i = 1; i <= 25; i++) {
+                layout.push(i * 3); 
+            }
+            return layout;
+        }
+
+        function initGameConnection() {
+            const numbersLayout = generateFixedLayout();
+            const gridElement = document.getElementById('bingo-grid');
+            gridElement.innerHTML = '';
+
+            let counter = 0;
+            for (let r = 0; r < 5; r++) {
+                localBoardStructure[r] = [];
+                for (let c = 0; c < 5; c++) {
+                    let isCenter = (r === 2 && c === 2);
+                    localBoardStructure[r][c] = isCenter ? "FREE" : numbersLayout[counter++];
+                    
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.textContent = localBoardStructure[r][c];
+                    
+                    if (isCenter) {
+                        cell.classList.add('free-space');
+                    } else {
+                        cell.addEventListener('click', () => handleCellClick(r, c));
+                    }
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+
+            onValue(ref(db, 'bingoRoom/'), (snapshot) => {
+                const data = snapshot.val() || {};
+                renderBoardState(data);
+            });
+
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                set(ref(db, 'bingoRoom/'), {
+                    player1Clicks: {},
+                    player2Clicks: {},
+                    winner: ""
+                });
+            });
+        }
+
+        function handleCellClick(row, col) {
+            set(ref(db, `bingoRoom/${myRole}Clicks/${row}_${col}`), true);
+        }
+
+        function renderBoardState(data) {
+            const myClicks = data[`${myRole}Clicks`] || {};
+            const opponentClicks = data[`${opponentRole}Clicks`] || {};
+            
+            let trackingMatrix = [];
+
+            for (let r = 0; r < 5; r++) {
+                trackingMatrix[r] = [];
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.getElementById(`cell-${r}-${c}`);
+                    cell.className = 'cell'; 
+                    
+                    if (r === 2 && c === 2) {
+                        cell.classList.add('free-space');
+                        trackingMatrix[r][c] = true;
+                        continue;
+                    }
+
+                    const iMarked = myClicks[`${r}_${c}`] === true;
+                    const theyMarked = opponentClicks[`${r}_${c}`] === true;
+
+                    trackingMatrix[r][c] = iMarked;
+
+                    if (iMarked && theyMarked) {
+                        cell.classList.add('both-marked');
+                    } else if (iMarked) {
+                        cell.classList.add('marked');
+                    } else if (theyMarked) {
+                        cell.classList.add('opponent-marked');
+                    }
+                }
+            }
+
+            if (checkWin(trackingMatrix) && data.winner !== myRole) {
+                update(ref(db, 'bingoRoom/'), { winner: myRole });
+            }
+
+            const winStatus = document.getElementById('win-status');
+            if (data.winner) {
+                winStatus.textContent = data.winner === myRole ? "🎉 BINGO! You Won! 🎉" : "🥺 She got Bingo first!";
+            } else {
+                winStatus.textContent = "";
+            }
+        }
+
+        function checkWin(matrix) {
+            for (let r = 0; r < 5; r++) {
+                if (matrix[r].every(val => val === true)) return true;
+            }
+            for (let c = 0; c < 5; c++) {
+                if (matrix[0][c] && matrix[1][c] && matrix[2][c] && matrix[3][c] && matrix[4][c]) return true;
+            }
+            if (matrix[0][0] && matrix[1][1] && matrix[2][2] && matrix[3][3] && matrix[4][4]) return true;
+            if (matrix[0][4] && matrix[1][3] && matrix[2][2] && matrix[3][1] && matrix[4][0]) return true;
+
+            return false;
+        }
+    </script>
+</body>
+</html>
