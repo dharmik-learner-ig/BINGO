@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Real-Time Multi-Line Bingo 🎲</title>
+    <title>Real-Time Random Bingo 🎲</title>
     <style>
         :root {
             --primary-color: #ff6b8b;
@@ -63,7 +63,6 @@
             font-size: 0.9rem;
         }
 
-        /* Responsive Mobile Tracker */
         .bingo-tracker {
             display: flex;
             justify-content: center;
@@ -91,7 +90,6 @@
             text-decoration: line-through;
         }
 
-        /* Fully Responsive Grid System */
         .grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -108,7 +106,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: calc(1rem + 1vw);
+            font-size: calc(1.1rem + 1vw);
             font-weight: 700;
             color: #2f3542;
             cursor: pointer;
@@ -117,14 +115,10 @@
             touch-action: manipulation;
         }
 
-        /* Adjust sizing rules for text inside dense small dynamic screens */
         @media (max-width: 360px) {
             .cell {
-                font-size: 1.1rem;
-                border-radius: 8px;
-            }
-            .letter-box {
                 font-size: 1.2rem;
+                border-radius: 8px;
             }
         }
 
@@ -223,6 +217,7 @@
         let myRole = ''; 
         let opponentRole = '';
         let localBoardStructure = [];
+        let numbersGenerated = false;
 
         window.selectRole = function(role) {
             myRole = role;
@@ -235,20 +230,25 @@
             initGameConnection();
         }
 
-        function generateFixedLayout() {
-            let layout = [];
-            for(let i = 1; i <= 25; i++) {
-                layout.push(i * 3); 
+        // Generates an array containing numbers 1 to 25 shuffled randomly
+        function generateShuffledLayout() {
+            let numbers = [];
+            for (let i = 1; i <= 25; i++) {
+                numbers.push(i);
             }
-            return layout;
+            // Fisher-Yates shuffle algorithm logic
+            for (let i = numbers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+            }
+            return numbers;
         }
 
-        function initGameConnection() {
-            const numbersLayout = generateFixedLayout();
+        function createLocalGrid(numbersLayout) {
             const gridElement = document.getElementById('bingo-grid');
             gridElement.innerHTML = '';
-
             let counter = 0;
+
             for (let r = 0; r < 5; r++) {
                 localBoardStructure[r] = [];
                 for (let c = 0; c < 5; c++) {
@@ -269,18 +269,44 @@
                     gridElement.appendChild(cell);
                 }
             }
+        }
 
+        function triggerGlobalReset() {
+            const p1Layout = generateShuffledLayout();
+            const p2Layout = generateShuffledLayout();
+
+            set(ref(db, 'bingoRoom/'), {
+                player1Clicks: {},
+                player2Clicks: {},
+                player1Layout: p1Layout,
+                player2Layout: p2Layout,
+                winner: "",
+                resetCounter: Date.now() // Serves as a clear change signal for both browsers
+            });
+        }
+
+        function initGameConnection() {
             onValue(ref(db, 'bingoRoom/'), (snapshot) => {
                 const data = snapshot.val() || {};
+                
+                // If database layout rules are missing or a fresh reset happened, create layouts
+                if (!data.player1Layout || !data.player2Layout) {
+                    if (myRole === 'player1') {
+                        triggerGlobalReset();
+                    }
+                    return;
+                }
+
+                // Pick the layout mapped specifically to your role
+                const myLayout = myRole === 'player1' ? data.player1Layout : data.player2Layout;
+                
+                // Build or rebuild board structures if the layouts shifted
+                createLocalGrid(myLayout);
                 renderBoardState(data);
             });
 
             document.getElementById('reset-btn').addEventListener('click', () => {
-                set(ref(db, 'bingoRoom/'), {
-                    player1Clicks: {},
-                    player2Clicks: {},
-                    winner: ""
-                });
+                triggerGlobalReset();
             });
         }
 
@@ -298,6 +324,8 @@
                 trackingMatrix[r] = [];
                 for (let c = 0; c < 5; c++) {
                     const cell = document.getElementById(`cell-${r}-${c}`);
+                    if (!cell) continue;
+                    
                     cell.className = 'cell'; 
                     
                     if (r === 2 && c === 2) {
@@ -325,10 +353,12 @@
             
             for (let i = 0; i < 5; i++) {
                 const letterBox = document.getElementById(`letter-${i}`);
-                if (i < linesCompleted) {
-                    letterBox.classList.add('active');
-                } else {
-                    letterBox.classList.remove('active');
+                if (letterBox) {
+                    if (i < linesCompleted) {
+                        letterBox.classList.add('active');
+                    } else {
+                        letterBox.classList.remove('active');
+                    }
                 }
             }
 
@@ -348,13 +378,13 @@
             let totalLines = 0;
 
             for (let r = 0; r < 5; r++) {
-                if (matrix[r].every(val => val === true)) totalLines++;
+                if (matrix[r] && matrix[r].every(val => val === true)) totalLines++;
             }
             for (let c = 0; c < 5; c++) {
-                if (matrix[0][c] && matrix[1][c] && matrix[2][c] && matrix[3][c] && matrix[4][c]) totalLines++;
+                if (matrix[0] && matrix[0][c] && matrix[1][c] && matrix[2][c] && matrix[3][c] && matrix[4][c]) totalLines++;
             }
-            if (matrix[0][0] && matrix[1][1] && matrix[2][2] && matrix[3][3] && matrix[4][4]) totalLines++;
-            if (matrix[0][4] && matrix[1][3] && matrix[2][2] && matrix[3][1] && matrix[4][0]) totalLines++;
+            if (matrix[0] && matrix[0][0] && matrix[1][1] && matrix[2][2] && matrix[3][3] && matrix[4][4]) totalLines++;
+            if (matrix[0] && matrix[0][4] && matrix[1][3] && matrix[2][2] && matrix[3][1] && matrix[4][0]) totalLines++;
 
             return totalLines;
         }
