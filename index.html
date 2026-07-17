@@ -130,17 +130,8 @@
             touch-action: manipulation;
         }
 
+        /* Adjusted: Selected numbers immediately get the green color */
         .cell.marked {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .cell.opponent-marked {
-            border: 3px dashed var(--secondary-color);
-        }
-
-        .cell.both-marked {
             background-color: #2ed573;
             color: white;
             border-color: #2ed573;
@@ -307,19 +298,19 @@
             lastLoadedResetCounter = null;
         }
 
-        // Fixed: Use numbers up to 25, but omit exactly one random item so it generates only 24 items total
-        function generateShuffledLayout() {
+        // Fixed: Generates layout by excluding one completely random number between 1 and 25
+        function generateShuffledLayout(excludedNumber) {
             let numbers = [];
             for (let i = 1; i <= 25; i++) {
-                numbers.push(i);
+                if (i !== excludedNumber) {
+                    numbers.push(i);
+                }
             }
-            // Shuffle all 25 numbers
+            // Shuffle the 24 remaining numbers
             for (let i = numbers.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
             }
-            // Remove exactly the last number after shuffling to leave 24 values
-            numbers.pop();
             return numbers;
         }
 
@@ -354,21 +345,18 @@
         }
 
         window.triggerGlobalReset = function() {
-            const sharedLayout = generateShuffledLayout();
-            
-            // Re-shuffle the exact same 24 numbers for Player 2 so positions vary
-            let p2Layout = [...sharedLayout];
-            for (let i = p2Layout.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [p2Layout[i], p2Layout[j]] = [p2Layout[j], p2Layout[i]];
-            }
+            // Pick a random number between 1 and 25 to leave out for the FREE space
+            const randomExcluded = Math.floor(Math.random() * 25) + 1;
+
+            const dharmikLayout = generateShuffledLayout(randomExcluded);
+            const avishaLayout = generateShuffledLayout(randomExcluded);
 
             set(ref(db, roomPath), {
                 clickedNumbers: {},
-                dharmikLayout: sharedLayout,
-                avishaLayout: p2Layout,
+                dharmikLayout: dharmikLayout,
+                avishaLayout: avishaLayout,
                 winner: "",
-                turn: "dharmik", // Dharmik starts first
+                turn: "dharmik",
                 dharmik: true,
                 avisha: true,
                 resetCounter: Date.now()
@@ -404,7 +392,6 @@
                     }
                 }
                 
-                // Track Turn Logic
                 const currentTurn = data.turn || "dharmik";
                 isMyTurn = (currentTurn === myRole);
                 
@@ -423,19 +410,17 @@
         }
 
         function handleCellClick(numberValue) {
-            // Block action completely if it's not the user's turn
             if (!isMyTurn) return;
 
             onValue(ref(db, roomPath), (snap) => {
                 const data = snap.val() || {};
                 if (data.winner) return;
                 
-                // Check if number was already clicked
                 if (data.clickedNumbers && data.clickedNumbers[numberValue]) return;
 
                 const updates = {};
-                updates[`${roomPath}/clickedNumbers/${numberValue}`] = { [myRole]: true };
-                updates[`${roomPath}/turn`] = opponentRole; // Change turn to opponent
+                updates[`${roomPath}/clickedNumbers/${numberValue}`] = true;
+                updates[`${roomPath}/turn`] = opponentRole;
 
                 update(ref(db), updates);
             }, { onlyOnce: true });
@@ -460,21 +445,13 @@
                     }
 
                     const cellValue = localBoardStructure[r][c];
-                    const numberSelections = clickedNumbers[cellValue] || {};
+                    
+                    // Checked: If the number exists in clickedNumbers, mark it green immediately
+                    const isClicked = clickedNumbers[cellValue] !== undefined;
+                    trackingMatrix[r][c] = isClicked;
 
-                    // If either player clicked it, it reflects as active on both boards
-                    const chosenByMe = clickedNumbers[cellValue] !== undefined;
-                    trackingMatrix[r][c] = chosenByMe;
-
-                    const p1Selected = numberSelections['dharmik'] === true;
-                    const p2Selected = numberSelections['avisha'] === true;
-
-                    if (p1Selected && p2Selected) {
-                        cell.classList.add('both-marked');
-                    } else if (numberSelections[myRole] === true) {
+                    if (isClicked) {
                         cell.classList.add('marked');
-                    } else if (numberSelections[opponentRole] === true) {
-                        cell.classList.add('opponent-marked');
                     }
                 }
             }
