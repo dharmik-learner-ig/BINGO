@@ -51,8 +51,31 @@
         .role-indicator { 
             font-weight: 600; 
             color: #57606f; 
-            margin-bottom: 15px;
+            margin-bottom: 5px;
             font-size: 0.9rem;
+        }
+
+        .turn-indicator {
+            font-size: 1.2rem;
+            font-weight: 800;
+            padding: 8px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            background-color: #f1f2f6;
+            color: #2f3542;
+            transition: all 0.3s ease;
+        }
+
+        .turn-indicator.my-turn {
+            background-color: #2ed573;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
         }
 
         .bingo-tracker {
@@ -203,6 +226,7 @@
     <!-- SCREEN 2: ACTIVE PLAYING BOARD -->
     <div class="screen" id="game-screen">
         <div class="role-indicator" id="role-display"></div>
+        <div class="turn-indicator" id="turn-display">Waiting for turn...</div>
         
         <div class="bingo-tracker">
             <div class="letter-box" id="letter-0">B</div>
@@ -250,6 +274,7 @@
         let opponentRole = '';
         let localBoardStructure = [];
         let lastLoadedResetCounter = null;
+        let isMyTurn = false;
 
         listenToRoomData();
 
@@ -282,20 +307,22 @@
             lastLoadedResetCounter = null;
         }
 
-        // FIX 1: Generate only 24 numbers (1 to 24) instead of 25
+        // Fixed: Use numbers up to 25, but omit exactly one random item so it generates only 24 items total
         function generateShuffledLayout() {
             let numbers = [];
-            for (let i = 1; i <= 24; i++) {
+            for (let i = 1; i <= 25; i++) {
                 numbers.push(i);
             }
+            // Shuffle all 25 numbers
             for (let i = numbers.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
             }
+            // Remove exactly the last number after shuffling to leave 24 values
+            numbers.pop();
             return numbers;
         }
 
-        // FIX 2: Do not skip pool entries when rendering the middle FREE space
         function createLocalGrid(numbersLayout) {
             const gridElement = document.getElementById('bingo-grid');
             gridElement.innerHTML = '';
@@ -327,14 +354,21 @@
         }
 
         window.triggerGlobalReset = function() {
-            const p1Layout = generateShuffledLayout();
-            const p2Layout = generateShuffledLayout();
+            const sharedLayout = generateShuffledLayout();
+            
+            // Re-shuffle the exact same 24 numbers for Player 2 so positions vary
+            let p2Layout = [...sharedLayout];
+            for (let i = p2Layout.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [p2Layout[i], p2Layout[j]] = [p2Layout[j], p2Layout[i]];
+            }
 
             set(ref(db, roomPath), {
                 clickedNumbers: {},
-                dharmikLayout: p1Layout,
+                dharmikLayout: sharedLayout,
                 avishaLayout: p2Layout,
                 winner: "",
+                turn: "dharmik", // Dharmik starts first
                 dharmik: true,
                 avisha: true,
                 resetCounter: Date.now()
@@ -370,17 +404,40 @@
                     }
                 }
                 
+                // Track Turn Logic
+                const currentTurn = data.turn || "dharmik";
+                isMyTurn = (currentTurn === myRole);
+                
+                const turnDisplay = document.getElementById('turn-display');
+                if (isMyTurn) {
+                    turnDisplay.textContent = "Your Turn 🟢";
+                    turnDisplay.className = "turn-indicator my-turn";
+                } else {
+                    const opponentName = opponentRole.charAt(0).toUpperCase() + opponentRole.slice(1);
+                    turnDisplay.textContent = `${opponentName}'s Turn 🔴`;
+                    turnDisplay.className = "turn-indicator";
+                }
+
                 renderBoardState(data);
             });
         }
 
         function handleCellClick(numberValue) {
-            onValue(ref(db, `${roomPath}/winner`), (snap) => {
-                if(snap.val()) return;
+            // Block action completely if it's not the user's turn
+            if (!isMyTurn) return;
+
+            onValue(ref(db, roomPath), (snap) => {
+                const data = snap.val() || {};
+                if (data.winner) return;
                 
-                update(ref(db, `${roomPath}/clickedNumbers/${numberValue}`), {
-                    [myRole]: true
-                });
+                // Check if number was already clicked
+                if (data.clickedNumbers && data.clickedNumbers[numberValue]) return;
+
+                const updates = {};
+                updates[`${roomPath}/clickedNumbers/${numberValue}`] = { [myRole]: true };
+                updates[`${roomPath}/turn`] = opponentRole; // Change turn to opponent
+
+                update(ref(db), updates);
             }, { onlyOnce: true });
         }
 
@@ -405,16 +462,18 @@
                     const cellValue = localBoardStructure[r][c];
                     const numberSelections = clickedNumbers[cellValue] || {};
 
-                    const chosenByMe = numberSelections[myRole] === true;
-                    const chosenByOpponent = numberSelections[opponentRole] === true;
-
+                    // If either player clicked it, it reflects as active on both boards
+                    const chosenByMe = clickedNumbers[cellValue] !== undefined;
                     trackingMatrix[r][c] = chosenByMe;
 
-                    if (chosenByMe && chosenByOpponent) {
+                    const p1Selected = numberSelections['dharmik'] === true;
+                    const p2Selected = numberSelections['avisha'] === true;
+
+                    if (p1Selected && p2Selected) {
                         cell.classList.add('both-marked');
-                    } else if (chosenByMe) {
+                    } else if (numberSelections[myRole] === true) {
                         cell.classList.add('marked');
-                    } else if (chosenByOpponent) {
+                    } else if (numberSelections[opponentRole] === true) {
                         cell.classList.add('opponent-marked');
                     }
                 }
