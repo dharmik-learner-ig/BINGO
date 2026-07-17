@@ -349,11 +349,13 @@
             localBoardStructure = [];
         }
 
-        // FIXED: Generates an array containing ALL numbers from 1 to 25 shuffled randomly.
-        function generateShuffledLayout() {
+        // Generates remaining 24 numbers, excluding the shared hidden free space number
+        function generateShuffledLayoutExcluding(freeNum) {
             let numbers = [];
             for (let i = 1; i <= 25; i++) {
-                numbers.push(i);
+                if (i !== freeNum) {
+                    numbers.push(i);
+                }
             }
             for (let i = numbers.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -362,7 +364,7 @@
             return numbers;
         }
 
-        function createLocalGrid(numbersLayout) {
+        function createLocalGrid(numbersLayout, freeNumber) {
             const gridElement = document.getElementById('bingo-grid');
             gridElement.innerHTML = '';
             let counter = 0;
@@ -371,19 +373,18 @@
                 localBoardStructure[r] = [];
                 for (let c = 0; c < 5; c++) {
                     let isCenter = (r === 2 && c === 2);
-                    let valFromPool = numbersLayout[counter++];
                     
                     const cell = document.createElement('div');
                     cell.classList.add('cell');
                     cell.id = `cell-${r}-${c}`;
                     
                     if (isCenter) {
-                        // The randomly shuffled number that landed at index 12 is stored behind "FREE" 
-                        // so it's accounted for, but visually stamped out as the FREE zone.
-                        localBoardStructure[r][c] = "FREE";
+                        // Both players get the EXACT same number assigned hidden behind "FREE"
+                        localBoardStructure[r][c] = freeNumber;
                         cell.textContent = "FREE";
                         cell.classList.add('free-space');
                     } else {
+                        let valFromPool = numbersLayout[counter++];
                         localBoardStructure[r][c] = valFromPool;
                         cell.textContent = valFromPool;
                         cell.addEventListener('click', () => handleCellClick(valFromPool));
@@ -395,11 +396,16 @@
         }
 
         function executeGlobalLayoutReset() {
-            const dharmikLayout = generateShuffledLayout();
-            const avishaLayout = generateShuffledLayout();
+            // Choose exactly one shared random number between 1 and 25 to be hidden behind FREE for both players
+            const sharedFreeNumber = Math.floor(Math.random() * 25) + 1;
+            
+            // Build unique 24-number grids for each player using the 24 remaining numbers
+            const dharmikLayout = generateShuffledLayoutExcluding(sharedFreeNumber);
+            const avishaLayout = generateShuffledLayoutExcluding(sharedFreeNumber);
 
             set(ref(db, roomPath), {
                 clickedNumbers: {},
+                freeSpaceNumber: sharedFreeNumber,
                 dharmikLayout: dharmikLayout,
                 avishaLayout: avishaLayout,
                 winner: "",
@@ -427,7 +433,6 @@
             onValue(ref(db, roomPath), (snapshot) => {
                 const data = snapshot.val() || {};
                 
-                // POPS ALERT FOR BOTH PLAYERS INSTANTLY
                 if (data.leftRoomStatus) {
                     leaveHandled = true;
                     const modal = document.getElementById('win-modal');
@@ -455,7 +460,7 @@
 
                 if (!myRole) return;
 
-                if (!data.dharmikLayout || !data.avishaLayout) {
+                if (!data.dharmikLayout || !data.avishaLayout || !data.freeSpaceNumber) {
                     if (myRole === 'dharmik') {
                         executeGlobalLayoutReset();
                     }
@@ -463,10 +468,11 @@
                 }
 
                 const myLayout = myRole === 'dharmik' ? data.dharmikLayout : data.avishaLayout;
+                const activeFreeSpaceNumber = data.freeSpaceNumber;
                 
                 const isNewReset = data.resetCounter && (data.resetCounter !== lastLoadedResetCounter);
                 if (document.getElementById('bingo-grid').children.length === 0 || isNewReset) {
-                    createLocalGrid(myLayout);
+                    createLocalGrid(myLayout, activeFreeSpaceNumber);
                     if (data.resetCounter) {
                         lastLoadedResetCounter = data.resetCounter;
                     }
