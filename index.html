@@ -6,10 +6,11 @@
     <title>Real-Time Multiplayer Bingo 🎲</title>
     <style>
         :root {
-            --primary-color: #ff6b8b;
-            --secondary-color: #70a1ff;
-            --bg-color: #f1f2f6;
+            --primary-color: #9b5de5; /* Elegant Pastel Purple */
+            --secondary-color: #00bbf9; /* Clean Pastel Blue */
+            --bg-color: #f8f9fa;
             --card-color: #ffffff;
+            --accent-green: #00f5d4;
         }
 
         * {
@@ -20,6 +21,8 @@
         body {
             font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
+            background-image: radial-gradient(#e9ecef 1px, transparent 1px);
+            background-size: 16px 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -31,12 +34,13 @@
 
         .screen {
             background: var(--card-color);
-            padding: 25px 20px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            padding: 30px 24px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(155, 93, 229, 0.08);
             text-align: center;
             width: 100%;
             max-width: 420px;
+            border: 1px solid rgba(155, 93, 229, 0.1);
         }
 
         #role-screen { display: block; }
@@ -45,122 +49,145 @@
         h1 { 
             color: var(--primary-color); 
             margin: 5px 0 15px 0; 
-            font-size: 1.8rem;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
         
         .role-indicator { 
             font-weight: 600; 
-            color: #57606f; 
-            margin-bottom: 5px;
-            font-size: 0.9rem;
+            color: #6c757d; 
+            margin-bottom: 8px;
+            font-size: 0.95rem;
         }
 
         .turn-indicator {
-            font-size: 1.2rem;
-            font-weight: 800;
-            padding: 8px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            background-color: #f1f2f6;
-            color: #2f3542;
+            font-size: 1.15rem;
+            font-weight: 700;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 14px;
+            background-color: #f1f3f5;
+            color: #495057;
             transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
         }
 
         .turn-indicator.my-turn {
-            background-color: #2ed573;
+            background-color: var(--primary-color);
             color: white;
-            animation: pulse 1.5s infinite;
+            animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(155, 93, 229, 0.4); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(155, 93, 229, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(155, 93, 229, 0); }
         }
 
         .bingo-tracker {
             display: flex;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 15px;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
         .letter-box {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 900;
-            color: #ced6e0;
+            color: #adb5bd;
             flex: 1;
             max-width: 50px;
-            padding: 8px 0;
-            border-radius: 10px;
-            background-color: #f1f2f6;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            padding: 10px 0;
+            border-radius: 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .letter-box.active {
             color: white;
-            background-color: #ff4757;
-            transform: scale(1.05);
-            box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);
-            text-decoration: line-through;
+            background-color: var(--secondary-color);
+            transform: scale(1.1);
+            box-shadow: 0 6px 15px rgba(0, 187, 249, 0.3);
+            border-color: var(--secondary-color);
         }
 
         .grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
+            gap: 8px;
             width: 100%;
             margin: 0 auto;
         }
 
         .cell {
             aspect-ratio: 1;
-            background-color: #f1f2f6;
-            border: 2px solid #ced6e0;
-            border-radius: 10px;
+            background-color: #ffffff;
+            border: 1.5px solid #dee2e6;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: calc(1.1rem + 1vw);
+            font-size: calc(1.15rem + 1vw);
             font-weight: 700;
-            color: #2f3542;
+            color: #343a40;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.2s ease;
             user-select: none;
             touch-action: manipulation;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
         }
 
-        /* Adjusted: Selected numbers immediately get the green color */
+        .cell:active:not(.free-space):not(.marked) {
+            transform: scale(0.95);
+            background-color: #f8f9fa;
+        }
+
         .cell.marked {
-            background-color: #2ed573;
-            color: white;
-            border-color: #2ed573;
+            background-color: #00f5d4;
+            color: #004b40;
+            border-color: #00f5d4;
+            box-shadow: 0 4px 12px rgba(0, 245, 212, 0.2);
         }
 
         .cell.free-space {
-            background-color: #ffa502;
-            color: white;
+            background-color: #fee440;
+            color: #5f4d00;
             font-size: calc(0.55rem + 1vw);
+            border-color: #fee440;
+            box-shadow: 0 4px 12px rgba(254, 228, 64, 0.2);
         }
 
         .btn {
             width: 100%;
             margin: 8px 0;
-            padding: 14px;
-            font-size: 1rem;
-            font-weight: bold;
+            padding: 16px;
+            font-size: 1.05rem;
+            font-weight: 700;
             color: white;
             background-color: var(--primary-color);
             border: none;
-            border-radius: 15px;
+            border-radius: 16px;
             cursor: pointer;
             touch-action: manipulation;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(155, 93, 229, 0.15);
         }
 
-        .btn-secondary { background-color: var(--secondary-color); }
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary { 
+            background-color: #6c757d; 
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.15);
+        }
         
         .btn:disabled {
-            background-color: #ced6e0;
+            background-color: #e9ecef;
+            color: #adb5bd;
+            box-shadow: none;
             cursor: not-allowed;
         }
 
@@ -168,8 +195,8 @@
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(5px);
+            background: rgba(52, 58, 64, 0.6);
+            backdrop-filter: blur(8px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
@@ -178,29 +205,39 @@
 
         .modal-content {
             background: white;
-            padding: 30px 20px;
-            border-radius: 20px;
+            padding: 35px 24px;
+            border-radius: 24px;
             text-align: center;
             width: 100%;
-            max-width: 355px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 360px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
         @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
+            from { transform: scale(0.85); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
 
         .modal-title {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #2ed573;
-            margin-bottom: 10px;
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: var(--secondary-color);
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
         }
         
         .modal-title.lost {
-            color: #ff4757;
+            color: #6c757d;
+        }
+
+        .rematch-status {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-top: 8px;
+            min-height: 20px;
         }
     </style>
 </head>
@@ -209,9 +246,9 @@
     <!-- SCREEN 1: ROLE SELECTION -->
     <div class="screen" id="role-screen">
         <h1>Bingo Room 🎲</h1>
-        <p style="color: #747d8c; margin-bottom: 20px;">Pick your name to start synced play.</p>
+        <p style="color: #6c757d; margin-bottom: 24px; font-weight: 500;">Pick your name to start synced play.</p>
         <button class="btn" id="p1-join-btn" onclick="selectRole('dharmik')">I am Dharmik</button>
-        <button class="btn btn-secondary" id="p2-join-btn" onclick="selectRole('avisha')">I am Avisha</button>
+        <button class="btn btn-secondary" style="background-color: #00bbf9; box-shadow: 0 4px 12px rgba(0,187,249,0.15);" id="p2-join-btn" onclick="selectRole('avisha')">I am Avisha</button>
     </div>
 
     <!-- SCREEN 2: ACTIVE PLAYING BOARD -->
@@ -228,15 +265,16 @@
         </div>
         
         <div class="grid" id="bingo-grid"></div>
-        <button class="btn btn-secondary" style="margin-top: 15px;" onclick="leaveRoom()">Leave Game</button>
+        <button class="btn btn-secondary" style="margin-top: 20px;" onclick="leaveRoom()">Leave Game</button>
     </div>
 
-    <!-- GLOBAL GAME OVER MODAL -->
+    <!-- GLOBAL GAME OVER / NOTIFICATION MODAL -->
     <div class="game-over-modal" id="win-modal">
         <div class="modal-content">
             <div class="modal-title" id="modal-status-text">🎉 Victory!</div>
-            <p id="modal-sub-text" style="color: #57606f; margin-bottom: 20px; font-weight: 500;"></p>
-            <button class="btn" onclick="triggerGlobalReset()">Play Again 🔄</button>
+            <p id="modal-sub-text" style="color: #495057; margin-bottom: 18px; font-weight: 500; line-height: 1.4;"></p>
+            <button class="btn" id="rematch-btn" onclick="handleRematchClick()">Play Again 🔄</button>
+            <div class="rematch-status" id="rematch-status-text"></div>
         </div>
     </div>
 
@@ -266,12 +304,14 @@
         let localBoardStructure = [];
         let lastLoadedResetCounter = null;
         let isMyTurn = false;
+        let leaveHandled = false;
 
         listenToRoomData();
 
         window.selectRole = function(role) {
             myRole = role;
             opponentRole = (role === 'dharmik') ? 'avisha' : 'dharmik';
+            leaveHandled = false;
             
             document.getElementById('role-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
@@ -280,25 +320,36 @@
             document.getElementById('role-display').textContent = `Playing as: ${formattedName}`;
             
             update(ref(db, roomPath), {
-                [myRole]: true
+                [myRole]: true,
+                leftRoomStatus: "" // Clear stale leave notices on entering
             });
         }
 
         window.leaveRoom = function() {
-            if (myRole) {
-                update(ref(db, roomPath), {
-                    [myRole]: false
-                });
-            }
+            if (!myRole) return;
+            
+            const formattedName = myRole.charAt(0).toUpperCase() + myRole.slice(1);
+            
+            // Clean up room completely so it restarts for both
+            set(ref(db, roomPath), {
+                dharmik: false,
+                avisha: false,
+                leftRoomStatus: `${formattedName} left the game`
+            });
+
+            resetLocalStateToSelection();
+        }
+
+        function resetLocalStateToSelection() {
             document.getElementById('win-modal').style.display = 'none';
             document.getElementById('game-screen').style.display = 'none';
             document.getElementById('role-screen').style.display = 'block';
             myRole = '';
             opponentRole = '';
             lastLoadedResetCounter = null;
+            localBoardStructure = [];
         }
 
-        // Fixed: Generates layout by excluding one completely random number between 1 and 25
         function generateShuffledLayout(excludedNumber) {
             let numbers = [];
             for (let i = 1; i <= 25; i++) {
@@ -306,7 +357,6 @@
                     numbers.push(i);
                 }
             }
-            // Shuffle the 24 remaining numbers
             for (let i = numbers.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
@@ -344,10 +394,8 @@
             }
         }
 
-        window.triggerGlobalReset = function() {
-            // Pick a random number between 1 and 25 to leave out for the FREE space
+        function executeGlobalLayoutReset() {
             const randomExcluded = Math.floor(Math.random() * 25) + 1;
-
             const dharmikLayout = generateShuffledLayout(randomExcluded);
             const avishaLayout = generateShuffledLayout(randomExcluded);
 
@@ -359,15 +407,49 @@
                 turn: "dharmik",
                 dharmik: true,
                 avisha: true,
+                leftRoomStatus: "",
+                rematchRequests: { dharmik: false, avisha: false },
                 resetCounter: Date.now()
             });
-            document.getElementById('win-modal').style.display = 'none';
+        }
+
+        window.handleRematchClick = function() {
+            // If it's a leave alert popup notice, clicking button just dismisses the modal
+            if (leaveHandled) {
+                document.getElementById('win-modal').style.display = 'none';
+                return;
+            }
+            document.getElementById('rematch-btn').disabled = true;
+            update(ref(db, `${roomPath}/rematchRequests`), {
+                [myRole]: true
+            });
         }
 
         function listenToRoomData() {
             onValue(ref(db, roomPath), (snapshot) => {
                 const data = snapshot.val() || {};
                 
+                // Track if opponent forced a leave
+                if (myRole && data.leftRoomStatus) {
+                    leaveHandled = true;
+                    const modal = document.getElementById('win-modal');
+                    const statusText = document.getElementById('modal-status-text');
+                    const subText = document.getElementById('modal-sub-text');
+                    const rematchBtn = document.getElementById('rematch-btn');
+                    const rematchStatus = document.getElementById('rematch-status-text');
+
+                    statusText.textContent = "🏳️ Game Ended";
+                    statusText.className = "modal-title lost";
+                    subText.textContent = data.leftRoomStatus;
+                    rematchBtn.textContent = "OK";
+                    rematchBtn.disabled = false;
+                    rematchStatus.textContent = "";
+                    modal.style.display = 'flex';
+                    
+                    resetLocalStateToSelection();
+                    return;
+                }
+
                 if (document.getElementById('role-screen').style.display !== 'none') {
                     document.getElementById('p1-join-btn').disabled = data.dharmik === true;
                     document.getElementById('p2-join-btn').disabled = data.avisha === true;
@@ -377,7 +459,7 @@
 
                 if (!data.dharmikLayout || !data.avishaLayout) {
                     if (myRole === 'dharmik') {
-                        triggerGlobalReset();
+                        executeGlobalLayoutReset();
                     }
                     return;
                 }
@@ -390,6 +472,11 @@
                     if (data.resetCounter) {
                         lastLoadedResetCounter = data.resetCounter;
                     }
+                    document.getElementById('win-modal').style.display = 'none';
+                    document.getElementById('rematch-btn').disabled = false;
+                    document.getElementById('rematch-btn').textContent = "Play Again 🔄";
+                    document.getElementById('rematch-status-text').textContent = "";
+                    leaveHandled = false;
                 }
                 
                 const currentTurn = data.turn || "dharmik";
@@ -415,7 +502,6 @@
             onValue(ref(db, roomPath), (snap) => {
                 const data = snap.val() || {};
                 if (data.winner) return;
-                
                 if (data.clickedNumbers && data.clickedNumbers[numberValue]) return;
 
                 const updates = {};
@@ -427,6 +513,8 @@
         }
 
         function renderBoardState(data) {
+            if (leaveHandled) return; // Drop operations if room destruction notice active
+
             const clickedNumbers = data.clickedNumbers || {};
             let trackingMatrix = [];
 
@@ -445,8 +533,6 @@
                     }
 
                     const cellValue = localBoardStructure[r][c];
-                    
-                    // Checked: If the number exists in clickedNumbers, mark it green immediately
                     const isClicked = clickedNumbers[cellValue] !== undefined;
                     trackingMatrix[r][c] = isClicked;
 
@@ -469,27 +555,47 @@
                 }
             }
 
-            if (linesCompleted >= 5 && data.winner !== myRole && !data.winner) {
+            if (linesCompleted >= 5 && !data.winner) {
                 update(ref(db, roomPath), { winner: myRole });
+                return;
             }
 
             const modal = document.getElementById('win-modal');
             const statusText = document.getElementById('modal-status-text');
             const subText = document.getElementById('modal-sub-text');
+            const rematchStatus = document.getElementById('rematch-status-text');
 
             if (data.winner) {
                 modal.style.display = 'flex';
+                const formattedOpponent = opponentRole.charAt(0).toUpperCase() + opponentRole.slice(1);
                 
                 if (data.winner === myRole) {
                     statusText.textContent = "🎉 VICTORY!";
                     statusText.className = "modal-title";
-                    subText.textContent = myRole === 'dharmik' ? "You beat her to Bingo!" : "You beat him to Bingo!";
+                    subText.textContent = `You beat ${formattedOpponent} to Bingo!`;
                 } else {
                     statusText.textContent = "🥺 DEFEAT";
                     statusText.className = "modal-title lost";
-                    subText.textContent = myRole === 'dharmik' ? "She defeated you!" : "He defeated you!";
+                    subText.textContent = `${formattedOpponent} defeated you!`;
                 }
-            } else {
+
+                const requests = data.rematchRequests || {};
+                const p1Req = requests.dharmik === true;
+                const p2Req = requests.avisha === true;
+
+                if (p1Req && p2Req) {
+                    if (myRole === 'dharmik') {
+                        executeGlobalLayoutReset();
+                    }
+                } else if (p1Req || p2Req) {
+                    const dynamicName = p1Req ? "Dharmik" : "Avisha";
+                    if (requests[myRole]) {
+                        rematchStatus.textContent = `Waiting for response...`;
+                    } else {
+                        rematchStatus.textContent = `${dynamicName} wants a rematch!`;
+                    }
+                }
+            } else if (!leaveHandled) {
                 modal.style.display = 'none';
             }
         }
